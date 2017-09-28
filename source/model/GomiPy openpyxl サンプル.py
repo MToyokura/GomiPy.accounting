@@ -10,6 +10,7 @@ item_num = int(input())
 item_num_col = ws2['A']
 
 for i in item_num_col:
+    # i は <Cell 'raw'.A204> のような値を取る
     if i.value == item_num:
         item_cell_string = str(i)
         item_cell_coordinate = item_cell_string[12:-1]
