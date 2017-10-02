@@ -76,4 +76,5 @@ if __name__ == '__main__':
     print('filter_by_customer()で特定の会計番号の商品を絞り込み')
     print(purchased_item_manager.filter_by_customer(1))
     print('元のファイルに上書き保存')
-    purchased_item_manager.dataframe.to_excel('purchased_items.xlsx')
+    writer = pd.ExcelWriter('purchased_items.xlsx')
+    purchased_item_manager.dataframe.to_excel(writer, 'Sheet1')
