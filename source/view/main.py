@@ -1,12 +1,18 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QGridLayout, QLabel, QLineEdit, QPushButton, QStyleFactory, QWidget
+sys.path.append('../')
+
+from PyQt5.QtWidgets import (QAbstractItemView, QApplication, QFrame, 
+    QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QStyleFactory,
+    QTableView, QTreeView, QWidget)
 from PyQt5.QtGui import QIcon
+import model.core
 
 class AbstractWindow(QWidget):
 
     '''
-    ウィンドウを作るときはこのクラスを継承してください。
     このクラスはアプリ内の全ウィンドウに共通の設定を施します。
+    （ただし今のところアイコンを設定するのみです）
+    ウィンドウを作るときはこのクラスを継承してください。
     '''
 
     def __init__(self):
@@ -75,6 +81,7 @@ class AccountingWindow(AbstractWindow):
         self.top = 220
         self.width = 500
         self.height = 300
+        self.cart_model = models.cart_model()
         self.init_ui()
         
 
@@ -85,50 +92,82 @@ class AccountingWindow(AbstractWindow):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
 
+        # はじめに、会計処理ウィンドウ全体のレイアウトを設定します。
+        # QHBoxLayout は、一個以上の箱が水平に並んだレイアウトを作ります。
+        self.wrapper = QHBoxLayout(self)
+
+        # wrapper の 中身を作っていきます。
+        # QFrameは、内部にレイアウトを持つことができるウィジェットです。
+        self.left = QFrame(self)
+        # wrapper の左側の箱に入れます。
+        self.wrapper.addWidget(self.left)
+
+        # 今作ったQFrameの中に、新たにレイアウトを作ります。
+        # GridLayout は、一個以上の箱が格子状に並んだレイアウトです。
+        self.item_request_wrapper = QGridLayout(self.left)
+
+        # GridLayoutの中に入れるウィジェットを作っていきます。
         # 「商品番号」ラベル
-        item_request_item_id_label = QLabel(self)
-        item_request_item_id_label.setText('商品番号')
+        self.item_request_id_label = QLabel(self)
+        self.item_request_id_label.setText('商品番号')
+        # GridLayout に入れます。
+        # なお、addWidget() の引数は、(嵌められるウィジェット, 嵌める行, 嵌める列) です。
+        self.item_request_wrapper.addWidget(self.item_request_id_label, 0, 0)
 
         # 商品番号入力欄
-        item_request_item_id_input = QLineEdit(self)
+        self.item_request_id_input = QLineEdit(self)
+        # GridLayout に入れます。
+        self.item_request_wrapper.addWidget(self.item_request_id_input, 0, 1)
 
         # 「検索」ボタン
-        item_request_item_id_search = QPushButton(self)
-        item_request_item_id_search.setText('検索')
+        self.item_request_id_search = QPushButton(self)
+        self.item_request_id_search.setText('検索')
+        self.item_request_id_search.clicked.connect(self.put_item_in_cart)
+        # GridLayout に入れます。
+        self.item_request_wrapper.addWidget(self.item_request_id_search, 0, 2)
 
-        # 商品説明文表示欄
-        # 検索ボタンが押されるとここに該当商品の概要が表示されます（未実装）。
-        item_request_item_description = QLabel(self)
-
-        # レイアウト用の枠を作成します
-        # ここで呼び出している GridLayout は、格子状の枠を作成します。
-        item_request_layout = QGridLayout(self)
-
-        # 枠にGUIウィジェットを嵌めていきます。
-        # addWidget()の引数は、(嵌められるウィジェット, 嵌める行, 嵌める列) です。
-        item_request_layout.addWidget(item_request_item_id_label, 0, 0)
-        item_request_layout.addWidget(item_request_item_id_input, 0, 1)
-        item_request_layout.addWidget(item_request_item_id_search, 0, 2)
-        item_request_layout.addWidget(item_request_item_description, 1, 0)
+        # wrapper の左から2番目の箱に入れる予定のウィジェットを作ります。
+        # カートの中身をあらわす表
+        self.right = QTableView(self)
+        self.right.setModel(self.cart_model)
+        # wrapper の左から2番目の箱に入れます。
+        self.wrapper.addWidget(self.right)
 
         # ウィンドウを表示します。
         self.show()
 
-        # 商品説明文表示欄を操作するための関数を作ります。
-        # 関数内で定義される関数はクロージャと呼ばれます。
-        # クロージャに関しては以下のサイトが分かりやすいと思います。
-        # http://tomoprog.hatenablog.com/entry/2016/02/05/213056
-        def refresh_item_description(text):
-            '''
-            商品説明文表示欄に指定された文字列を表示します。
-            '''
-            item_request_item_description.setText(text)
+    def put_item_in_cart(self):
+        item = self.search_item()
+        self.cart_model.append(item)
         
-        # refresh_item_description() を self の属性として登録します。
-        self.refresh_item_description = refresh_item_description
-        
+    def search_item(self):
+        '''
+        商品番号入力欄の内容を取得し、該当商品を return します。
+        '''
+        query = int(self.item_request_id_input.text())
+        item = models.items.get_item_by_id(query)
+        return item
 
+class Models:
 
-app = QApplication(sys.argv)
-main_window = MainWindow()
-sys.exit(app.exec_())
+    '''
+    使うモデルを一括してインスタンス化するクラスです。
+    '''
+
+    def __init__(self):
+        self.excel = model.core.Excel()
+        self.excel.open('Python リサイクル市 会計用.xlsx')
+        items = self.excel.get_dataframe('raw')
+        self.items = model.core.Items(items)
+        self.cart_model = model.core.DataframeAsModel
+
+def main():
+    '''
+    GUI を起動します。
+    '''
+    app = QApplication(sys.argv)
+    main_window = MainWindow()
+    sys.exit(app.exec_())
+
+models = Models()
+main()
