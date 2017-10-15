@@ -1,11 +1,9 @@
 import sys
-sys.path.append('../')
 
 from PyQt5.QtWidgets import (QAbstractItemView, QApplication, QFrame, 
     QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QStyleFactory,
     QTableView, QTreeView, QWidget)
 from PyQt5.QtGui import QIcon
-import model.core
 
 class AbstractWindow(QWidget):
 
@@ -28,12 +26,13 @@ class MainWindow(AbstractWindow):
     '''
     アプリのメインウィンドウです。
     新規会計ボタンを持っています。
+
+    Parameters:
+    items -- type: model.Items 全商品リスト
+    cart  -- type: model.DataframeAsModel 購入済み商品リスト
     '''
 
-    def __init__(self):
-        '''
-        メインウィンドウの設定を行います。
-        '''
+    def __init__(self, items, cart):
         super().__init__()
         self.title = 'PyQt Test'
         self.left = 300
@@ -42,6 +41,8 @@ class MainWindow(AbstractWindow):
         self.height = 150
         self.accounting_window = None
         self.init_ui()
+        self.items_model = items
+        self.cart_model = cart
 
     def init_ui(self):
         '''
@@ -63,25 +64,27 @@ class MainWindow(AbstractWindow):
         '''
         新規会計ボタンが押されたときに呼び出されます。
         '''
-        self.accounting_window = AccountingWindow()
+        self.accounting_window = AccountingWindow(self.items_model, self.cart_model)
 
 class AccountingWindow(AbstractWindow):
 
     '''
     会計処理ウィンドウです。
+
+    Parameters:
+    items -- type: model.Items 全商品リスト
+    cart  -- type: model.DataframeAsModel 購入済み商品リスト
     '''
 
-    def __init__(self):
-        '''
-        会計処理ウィンドウの設定を行います。
-        '''
+    def __init__(self, items, cart):
         super().__init__()
         self.title = '会計'
         self.left = 320
         self.top = 220
         self.width = 500
         self.height = 300
-        self.cart_model = models.cart_model()
+        self.items_model = items
+        self.cart_model = cart
         self.init_ui()
         
 
@@ -145,29 +148,20 @@ class AccountingWindow(AbstractWindow):
         商品番号入力欄の内容を取得し、該当商品を return します。
         '''
         query = int(self.item_request_id_input.text())
-        item = models.items.get_item_by_id(query)
+        item = self.items_model.get_item_by_id(query)
         return item
 
-class Models:
 
-    '''
-    使うモデルを一括してインスタンス化するクラスです。
-    '''
-
-    def __init__(self):
-        self.excel = model.core.Excel()
-        self.excel.open('Python リサイクル市 会計用.xlsx')
-        items = self.excel.get_dataframe('raw')
-        self.items = model.core.Items(items)
-        self.cart_model = model.core.DataframeAsModel
-
-def main():
+def main(items, cart):
     '''
     GUI を起動します。
+
+    Parameters:
+    items -- type: model.Items 全商品リスト
+    cart  -- type: model.DataframeAsModel 購入済み商品リスト
     '''
+
     app = QApplication(sys.argv)
-    main_window = MainWindow()
+    main_window = MainWindow(items, cart)
     sys.exit(app.exec_())
 
-models = Models()
-main()
