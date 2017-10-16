@@ -2,6 +2,7 @@ import pandas as pd
 from openpyxl import load_workbook
 from itertools import islice
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt
+from PyQt5.QtGui import QStandardItem, QStandardItemModel
 
 class Excel:
 
@@ -45,6 +46,27 @@ def convert_openpyxl_to_pandas(ws):
     data = (islice(r, 1, None) for r in data)
     df = pd.DataFrame(data, index=idx, columns=cols)
     return df
+
+def convert_openpyxl_to_qtmodel(px_worksheet):
+    '''
+    openpyxl の worksheet を、Qt のモデルに変換します。
+    '''
+    qt_model = QStandardItemModel()
+
+    rows = px_worksheet.rows
+
+    for row_index, cells in enumerate(rows):
+        for column_index, cell in enumerate(cells):
+            # cell は openpyxl の worksheet のセル
+            # cell.valueはそのセルの値を格納
+            # cell を qt の model の item に変換
+            # (qt の model の item = エクセルで言うところのセル)
+            qt_item = QStandardItem()
+            qt_item.setData(cell.value)
+            #import pdb;pdb.set_trace()
+            qt_model.setItem(row_index, column_index, qt_item)
+
+    return qt_model
 
 class DataframeAsModel(QAbstractItemModel):
     def __init__(self, parent=None):
