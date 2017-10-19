@@ -1,7 +1,8 @@
 '''
 プログラムへのエントリポイント。
 '''
-import model, view
+import model
+import view
 
 def main():
     '''
@@ -9,20 +10,16 @@ def main():
     '''
 
     # エクセルファイルを開く。
-    excel = model.Excel()
-    excel.open('Python リサイクル市 会計用.xlsx')
+    manager = model.Manager('Python リサイクル市 会計用.xlsx', 'raw', '会計録')
 
     # 商品情報のシートを取得。
-    # pandasのdataframeが得られる。
-    items = excel.get_dataframe('raw')
-
-    # pandas の dataframeのままでは扱いづらいので
-    # 商品の検索など、商品情報管理に必要なメソッドをもつ
-    # Item モデル（modelモジュールで定義）のインスタンスにdataframeを渡す。
-    items_model = model.Items(items)
+    # qtのmodelが得られる。
+    items_model = manager.init_all_item_model()
+    items_model = manager.get_all_item_model()
 
     # カートとして使うためのモデルを作る。
-    cart_model = model.DataframeAsModel()
+    manager.init_purchased_item_model(0,1)
+    cart_model = manager.get_purchased_item_model()
 
     # GUIを起動。
     view.main(items_model, cart_model)

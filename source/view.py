@@ -34,29 +34,35 @@ class MainWindow(AbstractWindow):
 
     def __init__(self, items, cart):
         super().__init__()
-        self.title = 'PyQt Test'
-        self.left = 300
-        self.top = 200
-        self.width = 200
-        self.height = 150
+        # super()についての参考：
+        # http://www.lifewithpython.com/2014/01/python-super-function.html
         self.accounting_window = None
-        self.init_ui()
         self.items_model = items
         self.cart_model = cart
+
+        self.setWindowTitle('Gomipy Accounting')
+        self.setGeometry(100, 100, 500, 500)
+        self.init_ui()
 
     def init_ui(self):
         '''
         メインウィンドウ内部にGUIウィジェットを配置します。
         '''
-        self.setWindowTitle(self.title)
-        self.setGeometry(self.left, self.top, self.width, self.height)
-        
+        # はじめに、ウィンドウ全体のレイアウトを設定します。
+        # QHBoxLayout は、一個以上の箱が水平に並んだレイアウトを作ります。
+        wrapper = QHBoxLayout(self)
 
-        button = QPushButton('新規会計', self)
-        button.move(50, 50)
-        button.resize(100, 50)
-        button.clicked.connect(self.on_click)
-        
+        # 新規会計ボタンを作る
+        button_start_accounting = QPushButton('新規会計', self)
+        button_start_accounting.clicked.connect(self.on_click)
+        # wrapperの中に入れる
+        wrapper.addWidget(button_start_accounting)
+
+        items_list = QTreeView(self)
+        items_list.setModel(self.items_model)
+        wrapper.addWidget(items_list)
+
+
         # ウィンドウを表示します。
         self.show()
 
@@ -110,24 +116,35 @@ class AccountingWindow(AbstractWindow):
         self.item_request_wrapper = QGridLayout(self.left)
 
         # GridLayoutの中に入れるウィジェットを作っていきます。
+        # 「顧客番号」ラベル
+        self.customer_id_label = QLabel(self)
+        self.customer_id_label.setText('顧客番号')
+        # GridLayout に入れます。
+        # なお、addWidget() の引数は、(嵌められるウィジェット, 嵌める行, 嵌める列) です。
+        self.item_request_wrapper.addWidget(self.customer_id_label, 0, 0)
+
+        # 顧客番号入力欄
+        self.customer_id_input = QLineEdit(self)
+        # GridLayout に入れます。
+        self.item_request_wrapper.addWidget(self.customer_id_input, 0, 1)
+
         # 「商品番号」ラベル
         self.item_request_id_label = QLabel(self)
         self.item_request_id_label.setText('商品番号')
         # GridLayout に入れます。
-        # なお、addWidget() の引数は、(嵌められるウィジェット, 嵌める行, 嵌める列) です。
-        self.item_request_wrapper.addWidget(self.item_request_id_label, 0, 0)
+        self.item_request_wrapper.addWidget(self.item_request_id_label, 1, 0)
 
         # 商品番号入力欄
         self.item_request_id_input = QLineEdit(self)
         # GridLayout に入れます。
-        self.item_request_wrapper.addWidget(self.item_request_id_input, 0, 1)
+        self.item_request_wrapper.addWidget(self.item_request_id_input, 1, 1)
 
         # 「検索」ボタン
         self.item_request_id_search = QPushButton(self)
-        self.item_request_id_search.setText('検索')
+        self.item_request_id_search.setText('追加')
         self.item_request_id_search.clicked.connect(self.put_item_in_cart)
         # GridLayout に入れます。
-        self.item_request_wrapper.addWidget(self.item_request_id_search, 0, 2)
+        self.item_request_wrapper.addWidget(self.item_request_id_search, 2, 1)
 
         # wrapper の左から2番目の箱に入れる予定のウィジェットを作ります。
         # カートの中身をあらわす表
@@ -140,16 +157,12 @@ class AccountingWindow(AbstractWindow):
         self.show()
 
     def put_item_in_cart(self):
-        item = self.search_item()
-        self.cart_model.append(item)
-        
-    def search_item(self):
         '''
-        商品番号入力欄の内容を取得し、該当商品を return します。
+        購入済み商品一覧に追加します。
         '''
-        query = int(self.item_request_id_input.text())
-        item = self.items_model.get_item_by_id(query)
-        return item
+        customer_id = self.customer_id_input.text()
+        item_id = self.item_request_id_input.text()
+        self.cart_model.add_item(customer_id, item_id)
 
 
 def main(items, cart):

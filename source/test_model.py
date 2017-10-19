@@ -35,16 +35,17 @@ class TestConversionBetweenQtmodelAndOpenpyxl(unittest.TestCase):
         self.assertEqual(data, reversed_data)
 
 
-def convert_qtmodel_to_index_value_pair(qt_model):
+def convert_qtmodel_to_index_value_pair(qt_model, header=True):
     '''
     Qtのモデルをもとにindexとvalueのペアからなる辞書を作ります。
     現時点ではQtモデルとして2次元の表を想定しており、より深い木構造をもつモデルには対応しません。
+    header=True（デフォルト）でQtモデルのヘッダもindex:valueペアに変換します。
 
     Parameters:
     qt_model -- QAbstractItemModelインタフェースをもつオブジェクト
 
     Return:
-    表のインデックスをキーに、表の値を値にもつ辞書。
+    表のインデックスをキーに、表の値を値にもつPython辞書。
     表のインデックスは(row, column)のtupleで、(0,0)から。
     '''
     rows = qt_model.rowCount()
@@ -52,9 +53,18 @@ def convert_qtmodel_to_index_value_pair(qt_model):
 
     ret = {}
 
+    if header:
+        for column in range(0, columns):
+            header_item = qt_model.horizontalHeaderItem(column)
+            if header_item is not None:
+                header_string = header_item.text()
+                ret[(0, column)] = header_string
+
+    extra_row_index = 1 if header else 0
     for row, column in product(range(0, rows), range(0, columns)):
-        value = qt_model.item(row, column).data()
-        ret[(row, column)] = value
+        index = qt_model.index(row, column)
+        value = qt_model.data(index)
+        ret[(row + extra_row_index, column)] = value
 
     return ret
 
@@ -85,10 +95,12 @@ def create_table_dummy_data():
     ダミーデータを返します。
     '''
     data = {
-        (0,0): 'Tomato', 
-        (0,1): 'Banana', 
-        (1,0): 'Berry', 
-        (1,1): 'Cherry'
+        (0,0): 'Fruit', 
+        (0,1): 'Price', 
+        (1,0): 'Apple', 
+        (1,1): '300', 
+        (2,0): 'Berry', 
+        (2,1): '400'
     }
     return data
 
