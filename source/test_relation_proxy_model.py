@@ -6,33 +6,9 @@ model.pyの機能をチェックするunit testです。
 
 import unittest
 from itertools import product
-import model
+import relation_proxy_model as model
+from excelio import convert_openpyxl_to_qtmodel
 from openpyxl import Workbook
-
-class TestConversionBetweenQtmodelAndOpenpyxl(unittest.TestCase):
-
-    '''
-    openpyxlのワークシート⇔Qtのモデルの変換が正しく行われるかチェックします。
-    '''
-
-    def test_convert_openpyxl_to_qtmodel(self):
-        '''
-        openpyxlのワークシートとして表現された2次元の表をqtのモデルに変換しても表の内容は変化しない。
-        '''
-        # ダミーの表データを{(row, column): value}形式のPython辞書として作る
-        data = create_fruit_price_data()
-
-        # ダミーの表データをopenpyxlのワークシートに変換
-        px_worksheet = convert_index_value_pair_to_openpyxl(data)
-
-        # openpyxlのワークシートをQtのモデルに変換
-        qt_model = model.convert_openpyxl_to_qtmodel(px_worksheet)
-
-        # Qtのモデルを{(row, column): value}形式のPython辞書に変換
-        reversed_data = convert_qtmodel_to_index_value_pair(qt_model)
-
-        # もとのデータと等しくない場合はテストを失敗させる
-        self.assertEqual(data, reversed_data)
 
 class TestRelationProxyModel(unittest.TestCase):
 
@@ -48,7 +24,7 @@ class TestRelationProxyModel(unittest.TestCase):
         fruit_color =create_fruit_color_data()
 
         fruit_color_worksheet = convert_index_value_pair_to_openpyxl(fruit_color)
-        fruit_color_model = model.convert_openpyxl_to_qtmodel(fruit_color_worksheet)
+        fruit_color_model = convert_openpyxl_to_qtmodel(fruit_color_worksheet)
 
         actual_map = model.map_value_to_row(fruit_color_model, key_column)
         expected_map = make_value_row_map_for_dummy_table(fruit_color, key_column)
@@ -65,8 +41,8 @@ class TestRelationProxyModel(unittest.TestCase):
         fruit_color_worksheet = convert_index_value_pair_to_openpyxl(fruit_color)
         fruit_price_worksheet = convert_index_value_pair_to_openpyxl(fruit_price)
 
-        fruit_color_model = model.convert_openpyxl_to_qtmodel(fruit_color_worksheet)
-        fruit_price_model = model.convert_openpyxl_to_qtmodel(fruit_price_worksheet)
+        fruit_color_model = convert_openpyxl_to_qtmodel(fruit_color_worksheet)
+        fruit_price_model = convert_openpyxl_to_qtmodel(fruit_price_worksheet)
 
         proxy = model.RelationProxyModel(fruit_color_model, 0, fruit_price_model, 0)
 
@@ -85,8 +61,8 @@ class TestRelationProxyModel(unittest.TestCase):
         fruit_color_worksheet = convert_index_value_pair_to_openpyxl(fruit_color)
         fruit_price_worksheet = convert_index_value_pair_to_openpyxl(fruit_price)
 
-        fruit_color_model = model.convert_openpyxl_to_qtmodel(fruit_color_worksheet)
-        fruit_price_model = model.convert_openpyxl_to_qtmodel(fruit_price_worksheet)
+        fruit_color_model = convert_openpyxl_to_qtmodel(fruit_color_worksheet)
+        fruit_price_model = convert_openpyxl_to_qtmodel(fruit_price_worksheet)
 
         proxy = model.RelationProxyModel(fruit_color_model, 0, fruit_price_model, 0)
 
