@@ -149,7 +149,7 @@ class AccountingWindow(AbstractWindow):
         # wrapper の左から2番目の箱に入れる予定のウィジェットを作ります。
         # カートの中身をあらわす表
         self.right = QTableView(self)
-        self.right.setModel(self.cart_model)
+        self.right.setModel(self.cart_model.qt_model)
         # wrapper の左から2番目の箱に入れます。
         self.wrapper.addWidget(self.right)
 
