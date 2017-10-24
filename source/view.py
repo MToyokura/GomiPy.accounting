@@ -58,8 +58,10 @@ class MainWindow(AbstractWindow):
         # wrapperの中に入れる
         wrapper.addWidget(button_start_accounting)
 
+        # 全商品一覧のリストを作る
         items_list = QTreeView(self)
         items_list.setModel(self.items_model)
+        # wrapperの中に入れる
         wrapper.addWidget(items_list)
 
 
@@ -92,7 +94,6 @@ class AccountingWindow(AbstractWindow):
         self.items_model = items
         self.cart_model = cart
         self.init_ui()
-        
 
     def init_ui(self):
         '''
