@@ -16,6 +16,32 @@ class TestRelationProxyModel(unittest.TestCase):
     途中
     '''
 
+    def test_index_with_reference_to_sub_model(self):
+        '''
+        model.RelationProxyModel は、連結された2つのモデルがあたかも1つのモデルであるかのようにふるまう。
+        '''
+        fruit_color = create_fruit_color_data()
+        fruit_price = create_fruit_price_data()
+
+        fruit_color_worksheet = convert_index_value_pair_to_openpyxl(fruit_color)
+        fruit_price_worksheet = convert_index_value_pair_to_openpyxl(fruit_price)
+
+        fruit_color_model = convert_openpyxl_to_qtmodel(fruit_color_worksheet)
+        fruit_price_model = convert_openpyxl_to_qtmodel(fruit_price_worksheet)
+
+        proxy = model.RelationProxyModel(fruit_color_model, 0, fruit_price_model, 0)
+
+        actual = convert_qtmodel_to_index_value_pair(proxy, header=False)
+        expected = remove_header(create_fruit_color_price_data())
+
+        self.assertEqual(actual, expected)
+
+class TestMapper(unittest.TestCase):
+
+    '''
+    途中
+    '''
+
     def test_map_value_to_row(self):
         '''
         model.map_value_to_rowは、qt_modelの各行（row）に対して、{column列目の値: row}からなる辞書を返す。
@@ -46,30 +72,13 @@ class TestRelationProxyModel(unittest.TestCase):
 
         proxy = model.RelationProxyModel(fruit_color_model, 0, fruit_price_model, 0)
 
-        actual_map = proxy.main_sub_map
+        actual_map = proxy.mapper.main_sub_map
         expected_map = {index - 1: value - 1 for index, value in create_fruit_price_color_map().items()}
 
         self.assertEqual(actual_map, expected_map)
-    
-    def test_index_with_reference_to_sub_model(self):
-        '''
-        model.RelationProxyModel は、連結された2つのモデルがあたかも1つのモデルであるかのようにふるまう。
-        '''
-        fruit_color = create_fruit_color_data()
-        fruit_price = create_fruit_price_data()
 
-        fruit_color_worksheet = convert_index_value_pair_to_openpyxl(fruit_color)
-        fruit_price_worksheet = convert_index_value_pair_to_openpyxl(fruit_price)
 
-        fruit_color_model = convert_openpyxl_to_qtmodel(fruit_color_worksheet)
-        fruit_price_model = convert_openpyxl_to_qtmodel(fruit_price_worksheet)
 
-        proxy = model.RelationProxyModel(fruit_color_model, 0, fruit_price_model, 0)
-
-        actual = convert_qtmodel_to_index_value_pair(proxy, header=False)
-        expected = remove_header(create_fruit_color_price_data())
-
-        self.assertEqual(actual, expected)
 
 def make_value_row_map_for_dummy_table(dummy_table, column, header=True):
 

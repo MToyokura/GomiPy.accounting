@@ -25,22 +25,16 @@ class RelationProxyModel(QAbstractItemModel):
         self.main_column = main_column
         self.sub_column = sub_column
 
-        self.main_sub_map = None
-        self.number_of_main_columns = None
-
-        self.make_main_sub_map()
-        self.count_main_columns()
+        self.mapper = Mapper(main_model, main_column, sub_model, sub_column, self)
 
         # メインモデルの発するシグナルを捕捉し自分自身から対応するシグナルを発します。
         self.main_model.rowsAboutToBeInserted.connect(self.beginInsertRows)
         self.main_model.rowsInserted.connect(self.endInsertRows)
-        self.main_model.dataChanged.connect(self.main_data_changed)
+        self.main_model.dataChanged.connect(self.emit_data_changed)
 
-        # メインモデルのデータに変更があった場合に、メイン・サブ対応表を作り直します。
-        self.main_model.dataChanged.connect(self.make_main_sub_map)
 
-        #
-        self.sub_model.dataChanged.connect(self.sub_data_changed)
+        # サブモデルの発するシグナルを補足し自分自身から対応するシグナルを発します。
+        self.sub_model.dataChanged.connect(self.emit_data_changed)
 
 
     def __getattr__(self, name):
@@ -51,81 +45,19 @@ class RelationProxyModel(QAbstractItemModel):
         '''
         return getattr(self.main_model, name)
 
-    def make_main_sub_map(self):
+    def emit_data_changed(self, topleft, bottomright):
         '''
-        self.main_sub_mapを作ります。
-        main_sub_mapはmain_modelの行:sub_modelの該当行 からなる辞書です。
-        '''
-        number_of_rows_for_main_model = self.main_model.rowCount()
+        ソースモデルの dataChanged シグナルが放出された場合に呼び出され、self.dataChanged シグナルを放出します。
 
-        value_row_map = map_value_to_row(self.sub_model, self.sub_column)
-
-        self.main_sub_map = {}
-
-        for main_row in range(0, number_of_rows_for_main_model):
-            main_index = self.main_model.index(main_row, self.main_column)
-            main_value = self.main_model.data(main_index)
-            if main_value:
-                sub_row = value_row_map[main_value]
-                self.main_sub_map[main_row] = sub_row
-
-    def get_reversed_map(self):
-        '''
-        self.main_sub_mapの値とキーを逆にします。
-
-        subの行番号からメインの該当行の番号を知りたいときに使ってください。
-        Return: dict型
-        '''
-        return {value: key for key, value in self.main_sub_map.items()}
-
-    def count_main_columns(self):
-        '''
-        self.number_of_main_columnsの値を更新します。
-        '''
-        self.number_of_main_columns = self.main_model.columnCount()
-
-    def main_data_changed(self, topleft, bottomright):
-        '''
-        self.main_model.dataChanged シグナルが放出された場合に呼び出され、self.dataChanged シグナルを放出します。
-
-        self.__init__内でself.main_model.dataChangedシグナルにconnectされる必要があります。
+        self.__init__内でソースモデルの dataChanged シグナルにconnectされる必要があります。
 
         Parameters:
         topleft -- QAbstractItemModel.dataChanged() のtopLeft引数を参照。
         bottomright -- QAbstractItemModel.dataChanged() のbottomRight引数を参照。
         '''
-        redirected_topleft = self.index(topleft.row(), topleft.column())
-        redirected_bottomright = self.index(bottomright.row(), bottomright.column())
+        redirected_topleft = self.mapper.from_source(topleft)
+        redirected_bottomright = self.mapper.from_source(bottomright)
         self.dataChanged.emit(redirected_topleft, redirected_bottomright)
-
-    def sub_data_changed(self, topleft, bottomright):
-        '''
-        self.sub_model.dataChanged シグナルが放出された場合に呼び出され、self.dataChanged シグナルを放出します。
-
-        self.__init__内でself.sub_model.dataChangedシグナルにconnectされる必要があります。
-
-        Parameters:
-        topleft -- QAbstractItemModel.dataChanged() のtopLeft引数を参照。
-        bottomright -- QAbstractItemModel.dataChanged() のbottomRight引数を参照。
-        '''
-        reversed_map = self.get_reversed_map()
-        try:
-            redirected_topleft = self.index(
-                reversed_map[topleft.row()],
-                topleft.column() + self.number_of_main_columns
-            )
-            redirected_bottomright = self.index(
-                reversed_map[bottomright.row()],
-                bottomright.column() + self.number_of_main_columns
-            )
-
-        except KeyError:
-            pass
-        
-        else:
-            self.dataChanged.emit(redirected_topleft, redirected_bottomright)
-
-
 
     def index(self, row, column, parent=QModelIndex()):
         '''
@@ -162,6 +94,95 @@ class RelationProxyModel(QAbstractItemModel):
         メインモデルの範囲外のインデックスをもつアイテムへの参照をサブモデルにリダイレクトします。
         QAbstractItemModel.data()の実装です。
         '''
+
+        redirected_index = self.mapper.to_source(index)
+        if not redirected_index.isValid():
+            return None
+
+        if redirected_index.model() == self.main_model:
+            return self.main_model.data(redirected_index, role)
+        else:
+            return self.sub_model.data(redirected_index, role)
+
+
+class MapperException(Exception):
+    '''
+    Mapperクラスにおける例外の基底クラスです。
+    '''
+    pass
+
+class NoCorrespondingRowError(MapperException):
+    pass
+
+class Mapper:
+    def __init__(self, main_model, main_column, sub_model, sub_column, proxy_model):
+        self.main_model = main_model
+        self.sub_model = sub_model
+        self.main_column = main_column
+        self.sub_column = sub_column
+        self.proxy_model = proxy_model
+
+        self.main_sub_map = None
+        self.sub_main_map = None
+        self.number_of_main_columns = None
+
+        self.make_main_sub_map()
+        self.count_main_columns()
+        self.sub_main_map = self.get_reversed_map()
+
+        # メインモデルのデータに変更があった場合に、メイン・サブ対応表を作り直します。
+        self.main_model.dataChanged.connect(self.make_main_sub_map)
+
+    def make_main_sub_map(self):
+        '''
+        self.main_sub_mapを作ります。
+        main_sub_mapはmain_modelの行:sub_modelの該当行 からなる辞書です。
+        '''
+        number_of_rows_for_main_model = self.main_model.rowCount()
+
+        value_row_map = map_value_to_row(self.sub_model, self.sub_column)
+
+        self.main_sub_map = {}
+
+        for main_row in range(0, number_of_rows_for_main_model):
+            main_index = self.main_model.index(main_row, self.main_column)
+            main_value = self.main_model.data(main_index)
+            if main_value:
+                sub_row = value_row_map[main_value]
+                self.main_sub_map[main_row] = sub_row
+        
+
+    def get_reversed_map(self):
+        '''
+        self.main_sub_mapの値とキーを逆にします。
+
+        subの行番号からメインの該当行の番号を知りたいときに使ってください。
+        Return: dict型
+        '''
+        return {value: key for key, value in self.main_sub_map.items()}
+
+    def from_source(self, index: QModelIndex):
+        '''
+        ソースモデル（mainモデルかsubモデルのどちらか）のインデックスをプロキシモデルのインデックスに変換します。
+        '''
+
+        if index.model() == self.main_model:
+            return self.proxy_model.index(index.row(), index.column())
+
+        else:
+            try:
+                redirected_index = self.proxy_model.index(
+                    self.sub_main_map[index.row()],
+                    index.column() + self.number_of_main_columns
+                )
+                return redirected_index
+            except KeyError:
+                return QModelIndex()
+
+    def to_source(self, index: QModelIndex):
+        '''
+        プロキシモデルのインデックスをソースモデルのインデックスに変換します。
+        '''
         proxy_column = index.column()
         proxy_row = index.row()
         main_columns = self.number_of_main_columns
@@ -171,23 +192,27 @@ class RelationProxyModel(QAbstractItemModel):
             # サブモデルの該当行の行番号を取得
             try:
                 sub_row = self.main_sub_map[proxy_row]
-            # 該当行がない場合、Noneを返す
+            # 該当行がない場合、無効なインデックスを返す
             except KeyError:
-                return None
+                return QModelIndex()
 
             # サブモデルの該当列の列番号を取得
             sub_column = proxy_column - main_columns
             # サブモデルにアクセス
             redirected_index = self.sub_model.index(sub_row, sub_column)
-            return self.sub_model.data(redirected_index, role)
 
         # index がメインモデルの範囲内の場合
         else:
             # メインモデルにアクセス
-            main_index = self.main_model.index(proxy_row, proxy_column)
-            return self.main_model.data(main_index, role)
+            redirected_index = self.main_model.index(proxy_row, proxy_column)
 
+        return redirected_index
 
+    def count_main_columns(self):
+        '''
+        self.number_of_main_columnsの値を更新します。
+        '''
+        self.number_of_main_columns = self.main_model.columnCount()
 
 def map_value_to_row(qt_model: QAbstractItemModel, column):
     '''
