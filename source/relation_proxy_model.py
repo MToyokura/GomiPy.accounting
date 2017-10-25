@@ -104,17 +104,10 @@ class RelationProxyModel(QAbstractItemModel):
         else:
             return self.sub_model.data(redirected_index, role)
 
-
-class MapperException(Exception):
-    '''
-    Mapperクラスにおける例外の基底クラスです。
-    '''
-    pass
-
-class NoCorrespondingRowError(MapperException):
-    pass
-
 class Mapper:
+    '''
+    メインモデル・サブモデルとプロキシモデルの対応付けを行います。
+    '''
     def __init__(self, main_model, main_column, sub_model, sub_column, proxy_model):
         self.main_model = main_model
         self.sub_model = sub_model
@@ -126,14 +119,13 @@ class Mapper:
         self.sub_main_map = None
         self.number_of_main_columns = None
 
-        self.make_main_sub_map()
+        self.refresh_map()
         self.count_main_columns()
-        self.sub_main_map = self.get_reversed_map()
 
         # メインモデルのデータに変更があった場合に、メイン・サブ対応表を作り直します。
-        self.main_model.dataChanged.connect(self.make_main_sub_map)
+        self.main_model.dataChanged.connect(self.refresh_map)
 
-    def make_main_sub_map(self):
+    def refresh_map(self):
         '''
         self.main_sub_mapを作ります。
         main_sub_mapはmain_modelの行:sub_modelの該当行 からなる辞書です。
@@ -142,15 +134,22 @@ class Mapper:
 
         value_row_map = map_value_to_row(self.sub_model, self.sub_column)
 
-        self.main_sub_map = {}
+        main_sub_map = {}
 
         for main_row in range(0, number_of_rows_for_main_model):
             main_index = self.main_model.index(main_row, self.main_column)
             main_value = self.main_model.data(main_index)
-            if main_value:
+            if not main_value:
+                continue
+            try:
                 sub_row = value_row_map[main_value]
-                self.main_sub_map[main_row] = sub_row
-        
+            except KeyError:
+                pass
+            else:
+                main_sub_map[main_row] = sub_row
+
+        self.main_sub_map = main_sub_map
+        self.sub_main_map = self.get_reversed_map()
 
     def get_reversed_map(self):
         '''
@@ -163,7 +162,12 @@ class Mapper:
 
     def from_source(self, index: QModelIndex):
         '''
-        ソースモデル（mainモデルかsubモデルのどちらか）のインデックスをプロキシモデルのインデックスに変換します。
+        ソースモデル（mainモデルかsubモデルのどちらでもよい）のインデックスをプロキシモデルのインデックスに変換します。
+
+        Parameter:
+        index -- QModelIndex型 ソースモデルのインデックス
+
+        Return: QModelIndex型 プロキシモデルのインデックス
         '''
 
         if index.model() == self.main_model:
@@ -182,6 +186,11 @@ class Mapper:
     def to_source(self, index: QModelIndex):
         '''
         プロキシモデルのインデックスをソースモデルのインデックスに変換します。
+
+        Parameter:
+        index -- QModelIndex型 プロキシモデルのインデックス
+
+        Return: QModelIndex型 ソースモデルのインデックス
         '''
         proxy_column = index.column()
         proxy_row = index.row()
