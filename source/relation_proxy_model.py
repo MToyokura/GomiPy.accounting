@@ -32,12 +32,15 @@ class RelationProxyModel(QAbstractItemModel):
         self.count_main_columns()
 
         # メインモデルの発するシグナルを捕捉し自分自身から対応するシグナルを発します。
-        self.main_model.dataChanged.connect(self.main_data_changed)
         self.main_model.rowsAboutToBeInserted.connect(self.beginInsertRows)
         self.main_model.rowsInserted.connect(self.endInsertRows)
+        self.main_model.dataChanged.connect(self.main_data_changed)
 
         # メインモデルのデータに変更があった場合に、メイン・サブ対応表を作り直します。
         self.main_model.dataChanged.connect(self.make_main_sub_map)
+
+        #
+        self.sub_model.dataChanged.connect(self.sub_data_changed)
 
 
     def __getattr__(self, name):
@@ -66,6 +69,15 @@ class RelationProxyModel(QAbstractItemModel):
                 sub_row = value_row_map[main_value]
                 self.main_sub_map[main_row] = sub_row
 
+    def get_reversed_map(self):
+        '''
+        self.main_sub_mapの値とキーを逆にします。
+
+        subの行番号からメインの該当行の番号を知りたいときに使ってください。
+        Return: dict型
+        '''
+        return {value: key for key, value in self.main_sub_map.items()}
+
     def count_main_columns(self):
         '''
         self.number_of_main_columnsの値を更新します。
@@ -85,6 +97,35 @@ class RelationProxyModel(QAbstractItemModel):
         redirected_topleft = self.index(topleft.row(), topleft.column())
         redirected_bottomright = self.index(bottomright.row(), bottomright.column())
         self.dataChanged.emit(redirected_topleft, redirected_bottomright)
+
+    def sub_data_changed(self, topleft, bottomright):
+        '''
+        self.sub_model.dataChanged シグナルが放出された場合に呼び出され、self.dataChanged シグナルを放出します。
+
+        self.__init__内でself.sub_model.dataChangedシグナルにconnectされる必要があります。
+
+        Parameters:
+        topleft -- QAbstractItemModel.dataChanged() のtopLeft引数を参照。
+        bottomright -- QAbstractItemModel.dataChanged() のbottomRight引数を参照。
+        '''
+        reversed_map = self.get_reversed_map()
+        try:
+            redirected_topleft = self.index(
+                reversed_map[topleft.row()],
+                topleft.column() + self.number_of_main_columns
+            )
+            redirected_bottomright = self.index(
+                reversed_map[bottomright.row()],
+                bottomright.column() + self.number_of_main_columns
+            )
+
+        except KeyError:
+            pass
+        
+        else:
+            self.dataChanged.emit(redirected_topleft, redirected_bottomright)
+
+
 
     def index(self, row, column, parent=QModelIndex()):
         '''
@@ -178,3 +219,4 @@ def map_value_to_row(qt_model: QAbstractItemModel, column):
             value_row_pair[value] = row
 
     return value_row_pair
+
