@@ -37,6 +37,7 @@ class RelationProxyModel(QAbstractItemModel):
         self.sub_model.dataChanged.connect(self.emit_data_changed)
 
 
+
     def __getattr__(self, name):
         '''
         存在しない属性が呼び出された場合に呼び出されるメソッドです。
@@ -122,8 +123,9 @@ class Mapper:
         self.refresh_map()
         self.count_main_columns()
 
-        # メインモデルのデータに変更があった場合に、メイン・サブ対応表を作り直します。
+        # ソースモデルのデータに変更があった場合に、メイン・サブ対応表を作り直します。
         self.main_model.dataChanged.connect(self.refresh_map)
+        self.sub_model.dataChanged.connect(self.refresh_map)
 
     def refresh_map(self):
         '''
