@@ -14,7 +14,7 @@ class PurchasedItemModelWrapper:
     購入済み商品に対するラッパです。
 
     Parameters:
-    qt_model -- QAbstructItemModel型 購入済み商品のモデル
+    qt_model -- QAbstractItemModel型 購入済み商品のモデル
     column_for_customer_id -- int型 顧客番号を格納する列
     column_for_item_id -- int型 商品番号を格納する列
     '''
@@ -32,20 +32,27 @@ class PurchasedItemModelWrapper:
         customer_id -- str型 購入者の顧客番号
         item_id -- str型 商品番号
         '''
+
+        # 型チェック
         if not isinstance(customer_id, str):
             raise TypeError(
                 'Customer ID must be in str, not' + str(type(customer_id))
             )
 
+        # 型チェック
         if not isinstance(item_id, str):
             raise TypeError(
                 'Item ID must be in str, not' + str(type(item_id))
             )
 
+        # モデルの行数を取得
         row_at_end = self.qt_model.rowCount()
 
+        # 顧客番号セルを作成
         qt_customer_id = QStandardItem(customer_id)
+        # 商品番号セルを作成
         qt_item_id = QStandardItem(item_id)
+        # セルをモデルに組み込む
         self.qt_model.setItem(row_at_end, self.column_for_customer_id, qt_customer_id)
         self.qt_model.setItem(row_at_end, self.column_for_item_id, qt_item_id)
 

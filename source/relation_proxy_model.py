@@ -9,6 +9,8 @@ class RelationProxyModel(QAbstractItemModel):
     '''
     主モデルに副モデルを結合し、それらが1つのモデルであるかのように表示されるようにします。
 
+    属性の探索は、このクラス→継承元（QAbstractItemModel）→主モデルの順に行われます。
+
     Parameters:
     main_model -- QAbstractItemModel型 主モデルとして使うモデル。
     main_column -- int型 主モデルにおける、結合に利用するキーが入っている列の番号。
@@ -39,6 +41,11 @@ class RelationProxyModel(QAbstractItemModel):
 
 
     def __getattr__(self, name):
+        '''
+        存在しない属性が呼び出された場合に呼び出されるメソッドです。
+        
+        主モデルの属性を探索します。
+        '''
         return getattr(self.main_model, name)
 
     def make_main_sub_map(self):
@@ -70,18 +77,24 @@ class RelationProxyModel(QAbstractItemModel):
         self.main_model.dataChanged シグナルが放出された場合に呼び出され、self.dataChanged シグナルを放出します。
 
         self.__init__内でself.main_model.dataChangedシグナルにconnectされる必要があります。
+
+        Parameters:
+        topleft -- QAbstractItemModel.dataChanged() のtopLeft引数を参照。
+        bottomright -- QAbstractItemModel.dataChanged() のbottomRight引数を参照。
         '''
         redirected_topleft = self.index(topleft.row(), topleft.column())
         redirected_bottomright = self.index(bottomright.row(), bottomright.column())
-        self.dataChanged.emit(redirected_topleft, redirected_bottomright, (Qt.DisplayRole,))
+        self.dataChanged.emit(redirected_topleft, redirected_bottomright)
 
     def index(self, row, column, parent=QModelIndex()):
         '''
         QAbstractItemModel.index()の実装です。
         '''
-        if column < self.columnCount():
+        # 引数が範囲内ならば有効なインデックスを返す
+        if column < self.columnCount() and row < self.rowCount():
             return self.createIndex(row, column, None)
 
+        # 範囲外なら無効なインデックスを返す
         else:
             return QModelIndex()
 
@@ -114,17 +127,22 @@ class RelationProxyModel(QAbstractItemModel):
 
         # index がメインモデルの範囲外の場合
         if proxy_column >= main_columns:
+            # サブモデルの該当行の行番号を取得
             try:
                 sub_row = self.main_sub_map[proxy_row]
+            # 該当行がない場合、Noneを返す
             except KeyError:
                 return None
 
+            # サブモデルの該当列の列番号を取得
             sub_column = proxy_column - main_columns
+            # サブモデルにアクセス
             redirected_index = self.sub_model.index(sub_row, sub_column)
             return self.sub_model.data(redirected_index, role)
 
         # index がメインモデルの範囲内の場合
         else:
+            # メインモデルにアクセス
             main_index = self.main_model.index(proxy_row, proxy_column)
             return self.main_model.data(main_index, role)
 
@@ -132,7 +150,22 @@ class RelationProxyModel(QAbstractItemModel):
 
 def map_value_to_row(qt_model: QAbstractItemModel, column):
     '''
-    qt_modelの各行（row）に対して、{column列目の値: row}からなる辞書を返します。
+    qt_modelの各行（row）に対して、{引数column列目の値: row}からなる辞書を返します。
+
+    Parameters:
+    qt_model -- QAbstractItemModel型
+        e.g.
+            Fruit |  Color
+            ------+------
+        0   Apple |  Red
+        1   Berry |  Blue
+    
+    column -- int型 列番号
+        e.g. 0
+
+    return: dict型
+        e.g. {'Apple': 0, 'Berry': 1}
+
     '''
     number_of_rows = qt_model.rowCount()
     value_row_pair = {}
